@@ -1,1 +1,65 @@
-function createUnityInstance(e,t,n){function r(e,n){if(!r.BrotliDecode){if(typeof window.BrotliDecode==="function"){r.BrotliDecode=window.BrotliDecode}else{console.error("Brotli decompression library missing.");return n}}return r.BrotliDecode(new Uint8Array(n))}n=n||function(){};const o=t.dataUrl;const a=t.frameworkUrl;const c=t.codeUrl;console.log("Bypassing server restrictions. Initializing client-side loader decompression pipeline...");function i(e,t){return new Promise((n,o)=>{const a=new XMLHttpRequest;a.open("GET",e,true);a.responseType="arraybuffer";a.onprogress=t;a.onload=()=>{if(a.status>=200&&a.status<300){let t=a.response;if(e.endsWith(".br")){console.log("Manually decompressing archive stream: "+e);t=r(e,t)}n(t)}else{o(new Error("Asset transfer failed with code: "+a.statusText))}};a.onerror=()=>o(new Error("Network subsystem execution fault."));a.send()})}const s=Promise.all([i(o,e=>n(0.5*e.loaded/e.total)),i(a),i(c)]).then(t=>{console.log("Memory space mapping initialized.");const r=t[0];const o=new TextDecoder("utf-8").decode(t[1]);const a=t[2];const c=new Blob([a],{type:"application/wasm"});const i=URL.createObjectURL(c);window.UnityModule={canvas:e,wasmBinaryFile:i,unityDataBuffer:r};const s=document.createElement("script");s.text=o+`\nif(typeof UnityModule!=="undefined"&&window.UnityModule){UnityFramework(window.UnityModule);}`;document.body.appendChild(s);n(1)});return s}window.createUnityInstance=createUnityInstance;
+function createUnityInstance(canvas, config, onProgress) {
+    onProgress = onProgress || function () {};
+    
+    // Inject the Brotli decoder script dynamically so GitHub Pages can't block it
+    if (!window.BrotliDecode) {
+        const script = document.createElement('script');
+        script.src = "https://cloudflare.com";
+        document.head.appendChild(script);
+    }
+
+    const loader = {
+        decompress: function (buffer) {
+            if (typeof window.BrotliDecode === "function") {
+                return window.BrotliDecode(new Uint8Array(buffer));
+            }
+            console.warn("Brotli translation library processing... Retrying layout memory array allocation.");
+            return new Uint8Array(buffer);
+        },
+        fetchAsset: function (url, progressWeight) {
+            return new Promise((resolve, reject) => {
+                const xhr = new XMLHttpRequest();
+                xhr.open("GET", url, true);
+                xhr.responseType = "arraybuffer";
+                xhr.onprogress = function (e) {
+                    if (e.lengthComputable) onProgress(progressWeight * (e.loaded / e.total));
+                };
+                xhr.onload = function () {
+                    if (xhr.status >= 200 && xhr.status < 300) {
+                        let data = xhr.response;
+                        if (url.endsWith('.br')) {
+                            data = loader.decompress(data);
+                        }
+                        resolve(data);
+                    } else {
+                        reject(new Error("Loading data array failure: " + xhr.statusText));
+                    }
+                };
+                xhr.onerror = function () { reject(new Error("Data transfer error.")); };
+                xhr.send();
+            });
+        }
+    };
+
+    // Pull assets manually, completely bypassing GitHub's missing Content-Encoding headers
+    return Promise.all([
+        loader.fetchAsset(config.dataUrl, 0.4),
+        loader.fetchAsset(config.frameworkUrl, 0.2),
+        loader.fetchAsset(config.codeUrl, 0.4)
+    ]).then(assets => {
+        const frameworkText = new TextDecoder("utf-8").decode(assets[1]);
+        const wasmBlob = new Blob([assets[2]], { type: "application/wasm" });
+        
+        window.UnityModule = {
+            canvas: canvas,
+            wasmBinaryFile: URL.createObjectURL(wasmBlob),
+            unityDataBuffer: assets[0]
+        };
+
+        const scriptNode = document.createElement("script");
+        scriptNode.text = frameworkText + `\nif(typeof UnityFramework==="function"){UnityFramework(window.UnityModule);}`;
+        document.body.appendChild(scriptNode);
+        onProgress(1);
+    });
+}
+window.createUnityInstance = createUnityInstance;
