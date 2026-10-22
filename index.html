@@ -4,12 +4,27 @@
     <meta charset="utf-8"> 
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8"> 
     <title>Unity Web Player | Electoral Carnage</title> 
+    <!-- This library handles the background array unpacking for the loader -->
+    <script src="https://cloudflare.com"></script>
 </head> 
 <body style="text-align: center; padding: 0; border: 0; margin: 0;"> 
     <canvas id="unity-canvas" width="1280" height="720" tabindex="-1" style="width: 1280px; height: 720px; background: #231F20"></canvas> 
     
     <script src="Build/Robo Teddy Web.loader.js"></script> 
     <script> 
+        if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) { 
+            var meta = document.createElement('meta'); 
+            meta.name = 'viewport'; 
+            meta.content = 'width=device-width, height=device-height, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes'; 
+            document.getElementsByTagName('head').appendChild(meta); 
+            
+            var canvas = document.querySelector("#unity-canvas"); 
+            canvas.style.width = "100%"; 
+            canvas.style.height = "100%"; 
+            canvas.style.position = "fixed"; 
+            document.body.style.textAlign = "left"; 
+        } 
+        
         createUnityInstance(document.querySelector("#unity-canvas"), { 
             arguments: [], 
             dataUrl: "Build/Robo Teddy Web.data.br", 
@@ -20,6 +35,7 @@
             productName: "Electoral Carnage", 
             productVersion: "1.0", 
         }).then((unityInstance) => { 
+            console.log("Game successfully initialized.");
         }).catch((message) => { 
             alert(message); 
         }); 
